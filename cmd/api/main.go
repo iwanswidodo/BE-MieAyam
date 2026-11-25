@@ -50,6 +50,7 @@ func main() {
  ctx,cancel:=context.WithTimeout(context.Background(),10*time.Second); defer cancel()
  if err=db.PingContext(ctx); err!=nil { log.Fatalf("connect database: %v",err) }
  if err=migrate(db); err!=nil { log.Fatalf("database migration: %v",err) }
+ if err=seedProducts(db); err!=nil { log.Fatalf("seed products: %v",err) }
  uploadDir:=envOr("UPLOAD_DIR","uploads")
  if err=os.MkdirAll(uploadDir,0755); err!=nil { log.Fatal(err) }
  s:=&server{db:db,uploadDir:uploadDir}
@@ -81,6 +82,25 @@ func migrate(db *sql.DB) error {
  );
  CREATE INDEX IF NOT EXISTS idx_products_active_category ON products(active,category);`)
  return err
+}
+func seedProducts(db *sql.DB) error {
+ var count int
+ if err:=db.QueryRow("SELECT COUNT(*) FROM products").Scan(&count); err!=nil { return err }
+ if count>0 { return nil }
+ type seed struct { name,category,variant string; price int64 }
+ items:=[]seed{
+  {"Mie Ayam Original","Mie Ayam","Normal",17000},{"Mie Ayam Original","Mie Ayam","Jumbo",22000},
+  {"Mie Yamin","Mie Ayam","Normal",17000},{"Mie Yamin","Mie Ayam","Jumbo",22000},
+  {"Mie Ayam Chilli Oil","Mie Ayam","Normal",18000},{"Mie Ayam Chilli Oil","Mie Ayam","Jumbo",23000},
+  {"Mie Jebew Manis","Mie Jebew","Level 0–2",10000},{"Mie Jebew Manis","Mie Jebew","Level 3–5",11000},{"Mie Jebew Manis","Mie Jebew","Level 6–8",12000},{"Mie Jebew Manis","Mie Jebew","Level 9–10",13000},
+  {"Mie Jebew Asin","Mie Jebew","Level 0–2",10000},{"Mie Jebew Asin","Mie Jebew","Level 3–5",11000},{"Mie Jebew Asin","Mie Jebew","Level 6–8",12000},{"Mie Jebew Asin","Mie Jebew","Level 9–10",13000},
+  {"Pangsit Chilli Oil","Pangsit","",16000},{"Pangsit Kuah","Pangsit","",14000},{"Es Teh","Minuman","",4000},
+  {"Bakso (isi 2 buah)","Add On","",5000},{"Pangsit Rebus (isi 2 buah)","Add On","",5000},{"Komplit (Bakso + Pangsit)","Add On","",9000},
+  {"Saos","Add On","",1000},{"Sambal 1 Sachet","Add On","",2000},{"Extra Ayam","Add On","",5000},{"Pangsit Goreng","Add On","",1000},{"Extra Chilli Oil","Add On","",2000},
+ }
+ tx,err:=db.Begin(); if err!=nil{return err}; defer tx.Rollback()
+ for _,p:=range items { if _,err=tx.Exec("INSERT INTO products(name,category,variant,price) VALUES($1,$2,$3,$4)",p.name,p.category,p.variant,p.price);err!=nil{return err} }
+ return tx.Commit()
 }
 func (s *server) health(w http.ResponseWriter,r *http.Request) {
  if err:=s.db.PingContext(r.Context()); err!=nil { writeError(w,503,"database unavailable"); return }
