@@ -2,24 +2,35 @@
 
 Backend service for POS Mie Ayam Pak De Surya.
 
-## Stack
-- Go HTTP API
-- PostgreSQL (integration and migrations are the next foundation step)
-- Shared REST API for the Vite web client and React Native Android client
-
 ## Run
 
+Set `DATABASE_URL` to a PostgreSQL connection string, then run:
+
 ```bash
+export DATABASE_URL="postgres://user:password@localhost:5432/mieayam?sslmode=disable"
+export APP_ADDR=":8080"
+export UPLOAD_DIR="uploads"
+export CORS_ORIGIN="http://localhost:5173"
 go run ./cmd/api
 ```
 
-Health check: `GET http://localhost:8080/api/health`
+The service checks PostgreSQL connectivity and creates the `products` table on startup.
 
-## Architecture rules
-- Business rules and validation belong in this service.
-- Web and Android clients share this API contract.
-- Never commit secrets; use environment variables.
-- Offline transaction queue belongs to Android; the server is the source of truth after sync.
+## Product API
 
-## Current status
-Initial Go service scaffold. PostgreSQL integration, authentication, migrations, and business endpoints are not implemented yet.
+- `GET /api/products`: list active products. Add `?all=true` to include inactive products; optional `?category=...`.
+- `POST /api/products`: create a product.
+- `GET /api/products/{id}`: product detail.
+- `PUT /api/products/{id}`: update a product.
+- `DELETE /api/products/{id}`: soft-delete/deactivate a product.
+- `POST /api/products/{id}/image`: upload JPG/PNG image using multipart field `image`, max 5 MB.
+- `GET /uploads/{filename}`: serve uploaded product images.
+- `GET /api/health`: application and database health.
+
+Example JSON:
+
+```json
+{"name":"Mie Ayam Original","category":"Mie Ayam","variant":"Normal","price":17000,"active":true}
+```
+
+Dine-in and take-away share one price. Each sellable variant is a product row. Product images are optional and can be uploaded later. Persist and back up `UPLOAD_DIR`.
