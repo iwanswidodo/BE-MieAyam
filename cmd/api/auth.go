@@ -5,7 +5,6 @@ import (
  "crypto/sha256"
  "database/sql"
  "encoding/base64"
- "encoding/json"
  "errors"
  "net/http"
  "os"
@@ -68,4 +67,3 @@ func (s *server) requireAdmin(next http.Handler) http.Handler {
  })
 }
 
-var _ = json.Valid
