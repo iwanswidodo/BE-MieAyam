@@ -38,7 +38,7 @@ type productInput struct {
  Price int64 `json:"price"`
  Active *bool `json:"active"`
 }
-type server struct { db *sql.DB; uploadDir string }
+type server struct { db *sql.DB; uploadDir string; authSecret []byte }
 
 const productColumns = "id,name,category,variant,description,price,image_url,active,created_at,updated_at"
 
@@ -53,15 +53,17 @@ func main() {
  if err=seedProducts(db); err!=nil { log.Fatalf("seed products: %v",err) }
  uploadDir:=envOr("UPLOAD_DIR","uploads")
  if err=os.MkdirAll(uploadDir,0755); err!=nil { log.Fatal(err) }
- s:=&server{db:db,uploadDir:uploadDir}
+ secret:=os.Getenv("AUTH_SECRET"); if len(secret)<32 { log.Fatal("AUTH_SECRET must be at least 32 characters") }
+ s:=&server{db:db,uploadDir:uploadDir,authSecret:[]byte(secret)}
  mux:=http.NewServeMux()
  mux.HandleFunc("GET /api/health",s.health)
+ mux.HandleFunc("POST /api/admin/login",s.login)
  mux.HandleFunc("GET /api/products",s.listProducts)
- mux.HandleFunc("POST /api/products",s.createProduct)
+ mux.Handle("POST /api/products",s.requireAdmin(http.HandlerFunc(s.createProduct)))
  mux.HandleFunc("GET /api/products/{id}",s.getProduct)
- mux.HandleFunc("PUT /api/products/{id}",s.updateProduct)
- mux.HandleFunc("DELETE /api/products/{id}",s.deleteProduct)
- mux.HandleFunc("POST /api/products/{id}/image",s.uploadProductImage)
+ mux.Handle("PUT /api/products/{id}",s.requireAdmin(http.HandlerFunc(s.updateProduct)))
+ mux.Handle("DELETE /api/products/{id}",s.requireAdmin(http.HandlerFunc(s.deleteProduct)))
+ mux.Handle("POST /api/products/{id}/image",s.requireAdmin(http.HandlerFunc(s.uploadProductImage)))
  mux.Handle("/uploads/",http.StripPrefix("/uploads/",http.FileServer(http.Dir(uploadDir))))
  addr:=envOr("APP_ADDR",":8080")
  log.Printf("BE-MieAyam listening on %s",addr)
