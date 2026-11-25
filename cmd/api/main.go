@@ -51,6 +51,7 @@ func main() {
  if err=db.PingContext(ctx); err!=nil { log.Fatalf("connect database: %v",err) }
  if err=migrate(db); err!=nil { log.Fatalf("database migration: %v",err) }
  if err=seedProducts(db); err!=nil { log.Fatalf("seed products: %v",err) }
+ if err=ensureAdmin(db); err!=nil { log.Fatalf("admin bootstrap: %v",err) }
  uploadDir:=envOr("UPLOAD_DIR","uploads")
  if err=os.MkdirAll(uploadDir,0755); err!=nil { log.Fatal(err) }
  secret:=os.Getenv("AUTH_SECRET"); if len(secret)<32 { log.Fatal("AUTH_SECRET must be at least 32 characters") }
